@@ -12,14 +12,18 @@
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write '**/*.{ts,tsx,json,md}'",
-    "format:check": "prettier --check '**/*.{ts,tsx,json,md}'"
+    "format:check": "prettier --check '**/*.{ts,tsx,json,md}'",
+    "docs": "node swagger-docs.js"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.24.0",
     "@types/aws-lambda": "^8.10.149",
+    "@types/express": "^5.0.1",
     "@types/jest": "^29.5.14",
     "@types/node": "22.7.9",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
     "@typescript-eslint/eslint-plugin": "^8.29.1",
     "@typescript-eslint/parser": "^8.29.1",
     "aws-cdk": "2.1006.0",
@@ -34,6 +38,10 @@
   },
   "dependencies": {
     "aws-cdk-lib": "2.185.0",
-    "constructs": "^10.0.0"
+    "constructs": "^10.0.0",
+    "express": "^5.1.0",
+    "nodemon": "^3.1.9",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   }
 }
