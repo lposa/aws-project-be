@@ -3,6 +3,97 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { STATUS_CODES } from '../../utils/constants';
 import { randomUUID } from 'crypto';
 
+/**
+ * @swagger
+ * /products:
+ *   post:
+ *     summary: Create a new product
+ *     description: Adds a new product to the DynamoDB database, along with its stock information.
+ *     requestBody:
+ *       required: true
+ *       description: The product details.
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - description
+ *               - price
+ *               - count
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: The name of the product.
+ *                 example: "The Last of Us Part II"
+ *               description:
+ *                 type: string
+ *                 description: A short description of the product.
+ *                 example: "Joel and Ellie continue their journey."
+ *               price:
+ *                 type: number
+ *                 description: The price of the product.
+ *                 example: 59.99
+ *               count:
+ *                 type: integer
+ *                 description: Initial stock count for the product.
+ *                 example: 100
+ *     responses:
+ *       201:
+ *         description: Product created successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Product created successfully!"
+ *                 product:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       description: The unique identifier of the created product.
+ *                       example: "123e4567-e89b-12d3-a456-426614174000"
+ *                     name:
+ *                       type: string
+ *                       description: Name of the product.
+ *                       example: "The Last of Us Part II"
+ *                     description:
+ *                       type: string
+ *                       description: Description of the product.
+ *                       example: "Joel and Ellie continue their journey."
+ *                     price:
+ *                       type: number
+ *                       description: Price of the product.
+ *                       example: 59.99
+ *                     stock:
+ *                       type: integer
+ *                       description: Initial stock count of the product.
+ *                       example: 100
+ *       400:
+ *         description: Missing required product attributes.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Missing required product attributes"
+ *       500:
+ *         description: Internal Server Error.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to create product. Error goes here."
+ */
+
 export const createProduct = async (
   event: APIGatewayProxyEvent,
   dynamoDBClient: DynamoDBClient = new DynamoDBClient({ region: process.env.AWS_REGION })
