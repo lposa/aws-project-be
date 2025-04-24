@@ -1,11 +1,17 @@
-import { Handler } from 'aws-lambda';
 import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
 import { randomUUID } from 'crypto';
-
-const dynamoDB = new DynamoDBClient({ region: process.env.AWS_REGION });
 const tableName = process.env.TABLE_NAME as string;
 
-export const addProductsHandler: Handler = async (event) => {
+export interface AddProductEvent {
+  name?: string;
+  description?: string;
+  price?: number;
+}
+
+export const addProductsHandler = async (
+  event: AddProductEvent,
+  dynamoDBClient: DynamoDBClient = new DynamoDBClient({ region: process.env.AWS_REGION })
+) => {
   try {
     if (!event.name || !event.description || !event.price) {
       return {
@@ -29,9 +35,9 @@ export const addProductsHandler: Handler = async (event) => {
     };
 
     const command = new PutItemCommand(params);
-    await dynamoDB.send(command);
+    await dynamoDBClient.send(command);
 
-    console.log(`Product added: ${event.title}`);
+    console.log(`Product added: ${event.name}`);
 
     return {
       statusCode: 200,
@@ -39,7 +45,7 @@ export const addProductsHandler: Handler = async (event) => {
         message: 'Product successfully added!',
         product: {
           id: productId,
-          title: event.title,
+          title: event.name,
           description: event.description,
           price: event.price,
         },

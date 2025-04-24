@@ -1,11 +1,17 @@
-import { Handler } from 'aws-lambda';
 import { DynamoDBClient, GetItemCommand, PutItemCommand } from '@aws-sdk/client-dynamodb';
 
-const dynamoDB = new DynamoDBClient({ region: process.env.AWS_REGION });
+export interface AddStockEventType {
+  product_id: string;
+  count: number;
+}
+
 const productsTableName = process.env.PRODUCTS_TABLE_NAME as string;
 const stockTableName = process.env.STOCK_TABLE_NAME as string;
 
-export const addStockHandler: Handler = async (event) => {
+export const addStockHandler = async (
+  event: AddStockEventType,
+  dynamoDBClient: DynamoDBClient = new DynamoDBClient({ region: process.env.AWS_REGION })
+) => {
   try {
     const { product_id, count } = event;
 
@@ -25,7 +31,9 @@ export const addStockHandler: Handler = async (event) => {
       },
     });
 
-    const productResult = await dynamoDB.send(checkProductCommand);
+    const productResult = await dynamoDBClient.send(checkProductCommand);
+
+    console.log(productResult);
 
     if (!productResult.Item) {
       return {
@@ -46,7 +54,7 @@ export const addStockHandler: Handler = async (event) => {
       },
     });
 
-    await dynamoDB.send(stockItemCommand);
+    await dynamoDBClient.send(stockItemCommand);
 
     return {
       statusCode: 200,
