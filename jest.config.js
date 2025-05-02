@@ -8,4 +8,5 @@ module.exports = {
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
   testPathIgnorePatterns: ['/node_modules/', '/dist/', '/bin'],
   collectCoverageFrom: ['**/*.{ts,js}', '!**/node_modules/**', '!**/dist/**', '!**/__tests__/**'],
+  setupFiles: ['<rootDir>/jest.setup.js'],
 };

@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { mockProducts } from '../../mockProducts';
 import { COMMON_HEADERS, STATUS_CODES } from '../../utils/constants';
+import { DynamoDBClient, ScanCommand } from '@aws-sdk/client-dynamodb';
 
 /**
  * @swagger
@@ -52,21 +52,48 @@ import { COMMON_HEADERS, STATUS_CODES } from '../../utils/constants';
  *                   example: "Internal Server Error {error}"
  */
 
-export const getProductsList = async (): Promise<APIGatewayProxyResult> => {
+export const getProductsList = async (
+  dynamoDBClient: DynamoDBClient = new DynamoDBClient({ region: process.env.AWS_REGION })
+): Promise<APIGatewayProxyResult> => {
   try {
-    if (!mockProducts || mockProducts.length === 0) {
+    const productsTableName = process.env.PRODUCTS_TABLE_NAME!;
+    const stockTableName = process.env.STOCK_TABLE_NAME!;
+
+    const productsCommand = new ScanCommand({ TableName: productsTableName });
+    const productsData = await dynamoDBClient.send(productsCommand);
+
+    if (!productsData.Items || productsData.Items.length === 0) {
       return {
         statusCode: STATUS_CODES.NOT_FOUND,
         headers: COMMON_HEADERS,
-        body: JSON.stringify({
-          message: 'No products found',
-        }),
+        body: JSON.stringify({ message: 'No products found' }),
       };
     }
+
+    const products = productsData.Items.map((item) => ({
+      id: item.id.S,
+      name: item.name.S,
+      description: item.description.S,
+      price: parseFloat(item.price.N || '0'),
+    }));
+
+    const stockCommand = new ScanCommand({ TableName: stockTableName });
+    const stockData = await dynamoDBClient.send(stockCommand);
+
+    const stock = stockData?.Items?.map((item) => ({
+      product_id: item.product_id.S,
+      count: parseInt(item.count.N || '0', 10),
+    }));
+
+    const productsWithStock = products.map((product) => ({
+      ...product,
+      stock: stock?.find((s) => s.product_id === product.id)?.count || 0,
+    }));
+
     return {
       statusCode: STATUS_CODES.OK,
       headers: COMMON_HEADERS,
-      body: JSON.stringify(mockProducts),
+      body: JSON.stringify(productsWithStock),
     };
   } catch (error) {
     return {
