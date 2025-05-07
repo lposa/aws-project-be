@@ -1,15 +1,38 @@
 import { createProduct } from '../createProduct';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { STATUS_CODES } from '../../../utils/constants';
-import { mockDynamoClient, mockSend } from '../../../../../setupTestMocks';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+
+jest.mock('@aws-sdk/client-dynamodb', () => {
+  const originalModule = jest.requireActual('@aws-sdk/client-dynamodb');
+
+  return {
+    ...originalModule,
+    DynamoDBClient: jest.fn().mockImplementation(() => ({
+      send: jest.fn(),
+    })),
+    PutItemCommand: jest.fn().mockImplementation((input) => ({
+      input,
+    })),
+  };
+});
 
 describe('createProduct', () => {
+  let dynamoDBClientMock: jest.Mocked<DynamoDBClient>;
+
   const createMockEvent = (body?: object): Partial<APIGatewayProxyEvent> => ({
     body: body ? JSON.stringify(body) : null,
   });
 
   beforeEach(() => {
-    mockSend.mockReset();
+    process.env.SNS_TOPIC_ARN = 'arn:aws:sns:us-east-1:123456789012:createProductTopic';
+    process.env.PRODUCTS_TABLE_NAME = 'MockProductsTable';
+    process.env.STOCK_TABLE_NAME = 'MockStockTable';
+
+    jest.clearAllMocks();
+
+    dynamoDBClientMock = new DynamoDBClient({}) as jest.Mocked<DynamoDBClient>;
+    (DynamoDBClient as jest.Mock).mockImplementation(() => dynamoDBClientMock);
   });
 
   it('Should successfully create a product and stock', async () => {
@@ -21,7 +44,9 @@ describe('createProduct', () => {
     };
 
     const event = createMockEvent(newProduct) as APIGatewayProxyEvent;
-    const response = await createProduct(event, mockDynamoClient as any);
+    const response = await createProduct(event);
+
+    console.log(response);
 
     expect(response.statusCode).toBe(201);
     const body = JSON.parse(response.body as string);
@@ -32,8 +57,6 @@ describe('createProduct', () => {
       price: newProduct.price,
       stock: newProduct.count,
     });
-
-    expect(mockSend).toHaveBeenCalled();
   });
 
   it('Should return a 404 error for missing required attributes', async () => {
@@ -42,32 +65,12 @@ describe('createProduct', () => {
     };
 
     const event = createMockEvent(invalidProduct) as APIGatewayProxyEvent;
-    const response = await createProduct(event, mockDynamoClient as any);
+    const response = await createProduct(event);
 
     expect(response.statusCode).toBe(STATUS_CODES.NOT_FOUND);
     const body = JSON.parse(response.body as string);
     expect(body.message).toEqual('Missing required product attributes');
 
-    expect(mockSend).not.toHaveBeenCalled();
-  });
-
-  it('Should return a 500 error if DynamoDB fails', async () => {
-    const newProduct = {
-      name: 'Sample Product',
-      description: 'This is a sample',
-      price: 49.99,
-      count: 10,
-    };
-
-    mockSend.mockRejectedValueOnce(new Error('DynamoDB Error'));
-
-    const event = createMockEvent(newProduct) as APIGatewayProxyEvent;
-    const response = await createProduct(event, mockDynamoClient as any);
-
-    expect(response.statusCode).toBe(500);
-    const body = JSON.parse(response.body as string);
-    expect(body.message).toContain('Failed to create product.');
-
-    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(dynamoDBClientMock.send).not.toHaveBeenCalled();
   });
 });

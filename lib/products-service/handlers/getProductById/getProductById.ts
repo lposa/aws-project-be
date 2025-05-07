@@ -57,10 +57,9 @@ import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
  *                   example: "Internal Server Error {error}"
  */
 
-export const getProductById = async (
-  event: APIGatewayEvent,
-  dynamoDBClient: DynamoDBClient = new DynamoDBClient({ region: process.env.AWS_REGION })
-) => {
+const dynamoDBClient: DynamoDBClient = new DynamoDBClient({ region: process.env.AWS_REGION });
+
+export const getProductById = async (event: APIGatewayEvent) => {
   try {
     const productId = event.pathParameters?.product_id;
     const productsTableName = process.env.PRODUCTS_TABLE_NAME!;

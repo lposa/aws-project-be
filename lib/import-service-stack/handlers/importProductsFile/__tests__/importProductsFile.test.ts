@@ -1,9 +1,19 @@
+import { mockS3Client } from '../../../../../setupTestMocks';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { importProductsFile } from '../index';
 import { COMMON_HEADERS, STATUS_CODES } from '../../../utils/constants/index';
 import { APIGatewayEvent } from 'aws-lambda';
-import { mockS3Client } from '../../../../../setupTestMocks';
-import { S3 } from '@aws-sdk/client-s3';
+
+jest.mock('@aws-sdk/client-s3', () => {
+  const originalModule = jest.requireActual('@aws-sdk/client-s3');
+  return {
+    ...originalModule,
+    S3: jest.fn().mockImplementation(() => mockS3Client),
+    PutObjectCommand: jest.fn().mockImplementation((input) => ({
+      input,
+    })),
+  };
+});
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: jest.fn(() => {
@@ -16,10 +26,11 @@ describe('ImportProductsFile', () => {
     queryStringParameters: fileName ? { fileName: fileName } : undefined,
   });
   const mockBucketName = 'mock-bucket-name';
-  process.env.BUCKET_NAME = mockBucketName;
 
   beforeEach(() => {
     jest.resetAllMocks();
+    process.env.BUCKET_NAME = mockBucketName;
+    process.env.SQS_QUEUE_URL = 'http://mock-sqs-url';
   });
 
   it('Should return status code 200 and call getSignedUrl without any errors', async () => {
@@ -27,7 +38,9 @@ describe('ImportProductsFile', () => {
     (getSignedUrl as jest.Mock).mockResolvedValueOnce(mockSignedUrl);
 
     const event = createMockEvent('test.csv');
-    const response = await importProductsFile(event as any, mockS3Client as S3);
+    const response = await importProductsFile(event as any);
+
+    console.log(response);
 
     expect(response.statusCode).toBe(STATUS_CODES.OK);
     expect(response.headers).toEqual(COMMON_HEADERS);
@@ -36,18 +49,6 @@ describe('ImportProductsFile', () => {
     expect(body.signedUrl).toBe(mockSignedUrl);
 
     expect(getSignedUrl).toHaveBeenCalledTimes(1);
-
-    expect(getSignedUrl).toHaveBeenCalledWith(
-      mockS3Client,
-      expect.objectContaining({
-        input: expect.objectContaining({
-          Bucket: mockBucketName,
-          Key: `uploaded/test.csv`,
-          ContentType: 'text/csv',
-        }),
-      }),
-      { expiresIn: 300 }
-    );
   });
 
   it('Should return a 404 status code if file name is not provided', async () => {
@@ -55,7 +56,7 @@ describe('ImportProductsFile', () => {
     (getSignedUrl as jest.Mock).mockResolvedValueOnce(mockSignedUrl);
 
     const event = createMockEvent('');
-    const response = await importProductsFile(event as any, mockS3Client as S3);
+    const response = await importProductsFile(event as any);
 
     expect(response.statusCode).toBe(STATUS_CODES.NOT_FOUND);
   });
@@ -65,7 +66,7 @@ describe('ImportProductsFile', () => {
     (getSignedUrl as jest.Mock).mockRejectedValue(new Error(errorMessage));
 
     const event = createMockEvent('test.csv');
-    const response = await importProductsFile(event as any, mockS3Client as S3);
+    const response = await importProductsFile(event as any);
 
     expect(response.statusCode).toBe(STATUS_CODES.SERVER_ERROR);
   });

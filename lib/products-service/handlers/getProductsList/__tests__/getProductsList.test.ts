@@ -1,5 +1,5 @@
-import { mockDynamoClient, mockSend } from '../../../../../setupTestMocks';
 import { STATUS_CODES } from '../../../utils/constants';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 
 const expectedResults = [
   {
@@ -19,16 +19,21 @@ const expectedResults = [
 ];
 
 describe('getProductsById', () => {
-  beforeEach(() => {
-    jest.resetAllMocks();
-  });
+  let dynamoDBClientMock: jest.Mocked<DynamoDBClient>;
 
-  afterEach(() => {
-    jest.resetModules();
+  beforeEach(() => {
+    process.env.SNS_TOPIC_ARN = 'arn:aws:sns:us-east-1:123456789012:createProductTopic';
+    process.env.PRODUCTS_TABLE_NAME = 'MockProductsTable';
+    process.env.STOCK_TABLE_NAME = 'MockStockTable';
+
+    jest.clearAllMocks();
+
+    dynamoDBClientMock = new DynamoDBClient({}) as jest.Mocked<DynamoDBClient>;
   });
 
   it('Should return all products', async () => {
-    mockSend
+    dynamoDBClientMock.send = jest
+      .fn()
       .mockResolvedValueOnce({
         Items: [
           {
@@ -53,7 +58,7 @@ describe('getProductsById', () => {
       });
 
     const { getProductsList } = await import('../getProductsList');
-    const response = await getProductsList(mockDynamoClient as any);
+    const response = await getProductsList();
 
     expect(response.statusCode).toBe(200);
 
@@ -62,10 +67,10 @@ describe('getProductsById', () => {
   });
 
   it('Should return a 404 if no products exist', async () => {
-    mockSend.mockResolvedValueOnce({ Items: [] });
+    dynamoDBClientMock.send = jest.fn().mockResolvedValueOnce({});
 
     const { getProductsList } = await import('../getProductsList');
-    const response = await getProductsList(mockDynamoClient as any);
+    const response = await getProductsList();
 
     expect(response.statusCode).toBe(STATUS_CODES.NOT_FOUND);
 

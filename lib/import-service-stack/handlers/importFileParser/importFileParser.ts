@@ -3,14 +3,20 @@ import { STATUS_CODES } from '../../utils/constants';
 import { S3 } from '@aws-sdk/client-s3';
 import * as stream from 'stream';
 import csvParser from 'csv-parser';
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 
-export const importFileParser = async (event: S3Event, s3Client: S3 = new S3()) => {
+const sqsClient = new SQSClient({ region: process.env.AWS_REGION });
+
+const s3Client: S3 = new S3();
+
+export const importFileParser = async (event: S3Event) => {
   console.log('S3 Event:', JSON.stringify(event, null, 2));
 
   try {
     const bucketName = process.env.BUCKET_NAME;
+    const catalogItemsQueueUrl = process.env.SQS_QUEUE_URL;
 
-    if (!bucketName) {
+    if (!bucketName || !catalogItemsQueueUrl) {
       return {
         statusCode: STATUS_CODES.NOT_FOUND,
         body: JSON.stringify({ message: `Cant find bucket with name ${bucketName}` }),
@@ -31,13 +37,33 @@ export const importFileParser = async (event: S3Event, s3Client: S3 = new S3()) 
       await new Promise<void>((resolve, reject) => {
         inputStream
           .pipe(csvParser())
-          .on('data', (data) => {
+          .on('data', async (data) => {
             console.log('Parsed Record:', data);
+
+            const normalizedData = {
+              id: data.id || data.productId || '',
+              name: data.name || '',
+              description: data.description || '',
+              price: parseFloat(data.price || 0),
+              count: parseInt(data.count || 0, 10),
+            };
+
+            try {
+              const sendMessageCommand = new SendMessageCommand({
+                QueueUrl: catalogItemsQueueUrl!,
+                MessageBody: JSON.stringify(normalizedData),
+              });
+
+              await sqsClient.send(sendMessageCommand);
+              console.log(`Record sent to SQS: ${JSON.stringify(data)}`);
+            } catch (err) {
+              console.error(`Error sending record to SQS: ${JSON.stringify(data)}`, err);
+              reject(err);
+            }
           })
           .on('end', async () => {
             console.log(`Finished processing file: ${objectKey}`);
 
-            // Define the destination key (parsed/ folder)
             const parsedKey = objectKey.replace('uploaded/', 'parsed/');
 
             try {
