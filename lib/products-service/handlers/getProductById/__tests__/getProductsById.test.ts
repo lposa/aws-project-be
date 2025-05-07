@@ -1,6 +1,6 @@
 import { getProductById } from '../getProductById';
 import { APIGatewayEvent } from 'aws-lambda';
-import { mockDynamoClient, mockSend } from '../../../../../setupTestMocks';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 
 const validProductID = '1';
 const invalidProductID = '1212';
@@ -14,12 +14,21 @@ const expectedResult = {
 };
 
 describe('getProductsById', () => {
+  let dynamoDBClientMock: jest.Mocked<DynamoDBClient>;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    dynamoDBClientMock = new DynamoDBClient({}) as jest.Mocked<DynamoDBClient>;
+  });
+
   const createMockEvent = (productId?: string): Partial<APIGatewayEvent> => ({
     pathParameters: productId ? { product_id: productId } : undefined,
   });
 
   it('Should return a product based on a provided id', async () => {
-    mockSend
+    dynamoDBClientMock.send = jest
+      .fn()
       .mockResolvedValueOnce({
         Item: {
           id: { S: validProductID },
@@ -33,7 +42,7 @@ describe('getProductsById', () => {
       });
 
     const event = createMockEvent(validProductID) as APIGatewayEvent;
-    const response = await getProductById(event, mockDynamoClient as any);
+    const response = await getProductById(event);
 
     expect(response.statusCode).toBe(200);
 
@@ -42,10 +51,10 @@ describe('getProductsById', () => {
   });
 
   it('Should return a 404 Product not found if provided ID is non existent', async () => {
-    mockSend.mockResolvedValueOnce({}).mockResolvedValueOnce({});
+    dynamoDBClientMock.send = jest.fn().mockResolvedValueOnce({}).mockResolvedValueOnce({});
 
     const event = createMockEvent(invalidProductID) as APIGatewayEvent;
-    const response = await getProductById(event, mockDynamoClient as any);
+    const response = await getProductById(event);
 
     expect(response.statusCode).toBe(404);
     const body = JSON.parse(response.body as string);

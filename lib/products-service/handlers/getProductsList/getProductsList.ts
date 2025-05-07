@@ -52,9 +52,9 @@ import { DynamoDBClient, ScanCommand } from '@aws-sdk/client-dynamodb';
  *                   example: "Internal Server Error {error}"
  */
 
-export const getProductsList = async (
-  dynamoDBClient: DynamoDBClient = new DynamoDBClient({ region: process.env.AWS_REGION })
-): Promise<APIGatewayProxyResult> => {
+const dynamoDBClient: DynamoDBClient = new DynamoDBClient({ region: process.env.AWS_REGION });
+
+export const getProductsList = async (): Promise<APIGatewayProxyResult> => {
   try {
     const productsTableName = process.env.PRODUCTS_TABLE_NAME!;
     const stockTableName = process.env.STOCK_TABLE_NAME!;

@@ -94,9 +94,10 @@ import { randomUUID } from 'crypto';
  *                   example: "Failed to create product. Error goes here."
  */
 
+const dynamoDBClient: DynamoDBClient = new DynamoDBClient({ region: process.env.AWS_REGION });
+
 export const createProduct = async (
-  event: APIGatewayProxyEvent,
-  dynamoDBClient: DynamoDBClient = new DynamoDBClient({ region: process.env.AWS_REGION })
+  event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
     const body = event.body ? JSON.parse(event.body) : null;
@@ -128,6 +129,8 @@ export const createProduct = async (
       TableName: process.env.PRODUCTS_TABLE_NAME!,
       Item: productItem,
     });
+
+    console.log(command);
 
     await dynamoDBClient.send(command);
 
