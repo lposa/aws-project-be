@@ -5,6 +5,7 @@ import * as s3_deployment from 'aws-cdk-lib/aws-s3-deployment';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as events from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import path from 'path';
 
 const LAMBDA_EXCLUDE_FILES = [
@@ -16,7 +17,11 @@ const LAMBDA_EXCLUDE_FILES = [
 ];
 
 export class ImportServiceStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props?: cdk.StackProps & { catalogItemsQueue: sqs.Queue }
+  ) {
     super(scope, id, props);
 
     const api = new apigateway.RestApi(this, 'ImportServiceApi', {
@@ -76,16 +81,19 @@ export class ImportServiceStack extends cdk.Stack {
       memorySize: 1024,
       timeout: cdk.Duration.seconds(5),
       handler: 'handlers/importFileParser/importFileParser.importFileParser',
-      code: lambda.Code.fromAsset(path.join(__dirname, './'), {
-        exclude: LAMBDA_EXCLUDE_FILES,
-      }),
+      code: lambda.Code.fromAsset('dist'),
       environment: {
         BUCKET_NAME: bucket.bucketName,
+        SQS_QUEUE_URL: props?.catalogItemsQueue.queueUrl || '',
       },
     });
 
     bucket.grantReadWrite(importFileParserLambda);
     bucket.grantDelete(importFileParserLambda);
+
+    if (props?.catalogItemsQueue) {
+      props.catalogItemsQueue.grantSendMessages(importFileParserLambda);
+    }
 
     importFileParserLambda.addEventSource(
       new events.S3EventSource(bucket, {

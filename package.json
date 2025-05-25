@@ -5,7 +5,8 @@
     "back-end": "bin/back-end.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "esbuild './lib/**/*.ts' --bundle --platform=node --target=node20 --outdir=dist",
+    "build-tsc": "tsc",
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
@@ -15,7 +16,9 @@
     "format:check": "prettier --check '**/*.{ts,tsx,json,md}'",
     "docs": "node swagger-docs.js"
   },
-  "workspaces": ["lib/*"],
+  "workspaces": [
+    "lib/*"
+  ],
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.24.0",
@@ -28,6 +31,7 @@
     "@typescript-eslint/eslint-plugin": "^8.29.1",
     "@typescript-eslint/parser": "^8.29.1",
     "aws-cdk": "2.1006.0",
+    "esbuild": "^0.25.3",
     "eslint": "^9.24.0",
     "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-prettier": "^5.2.6",
@@ -38,8 +42,11 @@
     "typescript": "~5.6.3"
   },
   "dependencies": {
+    "@aws-cdk/aws-lambda-nodejs": "^1.203.0",
     "@aws-sdk/client-dynamodb": "^3.788.0",
     "@aws-sdk/client-s3": "^3.797.0",
+    "@aws-sdk/client-sns": "^3.803.0",
+    "@aws-sdk/client-sqs": "^3.799.0",
     "@aws-sdk/s3-request-presigner": "^3.797.0",
     "@types/uuid": "^10.0.0",
     "aws-cdk-lib": "2.185.0",
