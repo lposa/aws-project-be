@@ -5,6 +5,10 @@ import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import { Construct } from 'constructs';
 import { TABLE_NAMES } from '../database/database-stack';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
+import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 
 const LAMBDA_EXCLUDE_FILES = [
   'tests/**/*',
@@ -14,7 +18,11 @@ const LAMBDA_EXCLUDE_FILES = [
   '**/*.spec.js',
 ];
 
+const SNS_SUB_EMAIL = 'posa.97ps@gmail.com';
+
 export class ProductServiceStack extends cdk.Stack {
+  public readonly catalogItemsQueue: sqs.Queue;
+
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
@@ -107,5 +115,39 @@ export class ProductServiceStack extends cdk.Stack {
 
     productsTable.grantWriteData(createProductLambda);
     stockTable.grantWriteData(createProductLambda);
+
+    // task 6
+
+    this.catalogItemsQueue = new sqs.Queue(this, 'product-sqs');
+    const createProductTopic = new sns.Topic(this, 'create-product-topic', {
+      topicName: 'createProductTopic',
+    });
+
+    createProductTopic.addSubscription(new snsSubscriptions.EmailSubscription(SNS_SUB_EMAIL));
+
+    const catalogBatchProcess = new lambda.Function(this, 'catalogBatchProcess', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 1024,
+      timeout: cdk.Duration.seconds(5),
+      description: 'Handles CSV Uploads',
+      handler: 'handlers/catalogBatchProcess/catalogBatchProcess.catalogBatchProcess',
+      code: lambda.Code.fromAsset(path.join(__dirname, './'), {
+        exclude: LAMBDA_EXCLUDE_FILES,
+      }),
+      environment: {
+        PRODUCTS_TABLE_NAME: TABLE_NAMES.PRODUCTS,
+        STOCK_TABLE_NAME: TABLE_NAMES.STOCK,
+        SNS_TOPIC_ARN:
+          createProductTopic.topicArn ||
+          'arn:aws:sns:us-east-1:090877363691:ProductsService-createproducttopic9DDCCBFF-2olA2mE4d3zG',
+      },
+    });
+
+    createProductTopic.grantPublish(catalogBatchProcess);
+    createProductTopic.grantSubscribe(catalogBatchProcess);
+
+    catalogBatchProcess.addEventSource(
+      new SqsEventSource(this.catalogItemsQueue, { batchSize: 5 })
+    );
   }
 }
