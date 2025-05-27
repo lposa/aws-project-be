@@ -69,7 +69,21 @@ export class ImportServiceStack extends cdk.Stack {
       }
     );
 
-    importProductsFileResource.addMethod('GET', importProductsFileIntegration);
+    const basicAuthorizerFunction = lambda.Function.fromFunctionArn(
+      this,
+      'BasicAuthorizer',
+      `arn:aws:lambda:${this.region}:${this.account}:function:AuthorizationServiceStack-BasicAuthorizerLambda10A-eiSTeFIGrN6M`
+    );
+
+    const authorizer = new apigateway.TokenAuthorizer(this, 'ApiGatewayAuthorizer', {
+      handler: basicAuthorizerFunction,
+      identitySource: 'method.request.header.Authorization',
+    });
+
+    importProductsFileResource.addMethod('GET', importProductsFileIntegration, {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+    });
 
     importProductsFileResource.addCorsPreflight({
       allowOrigins: ['https://d3iskzqmo4n6f4.cloudfront.net', 'http://localhost:3000'],
